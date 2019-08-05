@@ -1,0 +1,63 @@
+package optimizely
+
+import (
+	"fmt"
+	"math"
+
+	"github.com/spaolacci/murmur3"
+)
+
+// status of an experiment that is in the running state
+const runningStatus = "Running"
+
+// max value of a traffic allocation; used as an upper bound for the bucketing hash
+const maxTrafficValue = 10000
+
+// value to seed the murmur hash algorithm with
+const hashSeed = 1
+
+// GetVariation returns a variation, if applicable, for a given experiment and a given user id. If no variation
+// is applicable, nil is returned.
+func (p Project) GetVariation(experimentName, userID string) *Variation {
+	experiment, ok := p.experiments[experimentName]
+	if !ok {
+		return nil
+	}
+	if experiment.status != runningStatus {
+		return nil
+	}
+	forcedVariation, ok := experiment.forcedVariations[userID]
+	if ok {
+		return forcedVariation
+	}
+	experiment.mutex.RLock()
+	cachedVariation, ok := experiment.cachedVariations[userID]
+	experiment.mutex.RUnlock()
+	if ok {
+		return cachedVariation
+	}
+	variation := experiment.findBucket(experiment.getBucketValue(userID))
+	experiment.mutex.Lock()
+	defer experiment.mutex.Unlock()
+	experiment.cachedVariations[userID] = variation
+	return variation
+}
+
+// getBucketValue finds the value of the bucket given a unique ID (should be the user ID)
+// using the murmur hash algorithm.
+func (e Experiment) getBucketValue(bucketingID string) int {
+	bucketingKey := fmt.Sprintf("%v%v", bucketingID, e.id)
+	hashCode := murmur3.Sum32WithSeed([]byte(bucketingKey), hashSeed)
+	ratio := float64(hashCode) / math.MaxUint32
+	return int(math.Floor(ratio * maxTrafficValue))
+}
+
+// findBucket finds the variation from the experiment's traffic allocation given a bucketing value.
+func (e Experiment) findBucket(bucketValue int) *Variation {
+	for _, allocation := range e.trafficAllocation {
+		if bucketValue < allocation.endOfRange {
+			return allocation.Variation
+		}
+	}
+	return nil
+}
