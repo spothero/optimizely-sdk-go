@@ -6,6 +6,7 @@ import (
 	"sync"
 )
 
+// only version 4 of the datafile is currently supported
 const supportedDatafileVersion = "4"
 
 // Project is an Optimizely project containing a set of experiments. Project also includes
