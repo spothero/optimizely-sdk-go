@@ -117,7 +117,7 @@ func TestProject_GetVariation(t *testing.T) {
 				"a": {
 					status: runningStatus,
 					forcedVariations: map[string]*Variation{
-						"user": &Variation{id: "abc", Key: "abc"},
+						"user": {id: "abc", Key: "abc"},
 					},
 				},
 			}},
@@ -132,7 +132,7 @@ func TestProject_GetVariation(t *testing.T) {
 					status:           runningStatus,
 					forcedVariations: map[string]*Variation{},
 					cachedVariations: map[string]*Variation{
-						"user": &Variation{id: "abc", Key: "abc"},
+						"user": {id: "abc", Key: "abc"},
 					},
 					mutex: &sync.RWMutex{},
 				},
