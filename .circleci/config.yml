@@ -3,7 +3,7 @@ jobs:
   lint:
     docker:
       - image: circleci/golang:1.12
-    working_directory: /tmp
+    working_directory: /tmp/optimizely
     steps:
       - checkout
       - run: curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b /go/bin latest
@@ -11,7 +11,7 @@ jobs:
   test:
     docker:
       - image: circleci/golang:1.12
-    working_directory: /tmp
+    working_directory: /tmp/optimizely
     steps:
       - checkout
       - run: mkdir -p /tmp/test-reports/unit # CircleCI likes test results to be in sub-directories for naming
