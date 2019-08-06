@@ -29,7 +29,7 @@ func assertVisitorEqual(t *testing.T, expected, actual visitor) {
 
 func TestImpression_toVisitor(t *testing.T) {
 	impression := Impression{
-		Variation: &Variation{
+		Variation: Variation{
 			id:  "variation",
 			Key: "key",
 			experiment: &Experiment{
@@ -75,7 +75,7 @@ func TestNewEvents(t *testing.T) {
 			[]func(*Events) error{
 				ActivatedImpression(
 					Impression{
-						Variation: &Variation{
+						Variation: Variation{
 							id:  "variation_id_1",
 							Key: "variation_key_1",
 							experiment: &Experiment{
@@ -90,7 +90,7 @@ func TestNewEvents(t *testing.T) {
 				),
 				ActivatedImpression(
 					Impression{
-						Variation: &Variation{
+						Variation: Variation{
 							id:  "variation_id_2",
 							Key: "variation_key_2",
 							experiment: &Experiment{
@@ -154,7 +154,7 @@ func TestNewEvents(t *testing.T) {
 			[]func(*Events) error{
 				ActivatedImpression(
 					Impression{
-						Variation: &Variation{
+						Variation: Variation{
 							experiment: &Experiment{
 								project: &Project{AccountID: "account"},
 							},
@@ -163,7 +163,7 @@ func TestNewEvents(t *testing.T) {
 				),
 				ActivatedImpression(
 					Impression{
-						Variation: &Variation{
+						Variation: Variation{
 							experiment: &Experiment{
 								project: &Project{AccountID: "other account"},
 							},

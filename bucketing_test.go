@@ -138,7 +138,7 @@ func TestProject_GetVariation(t *testing.T) {
 			}},
 			"a",
 			"user",
-			&Impression{Variation: &Variation{id: "abc", Key: "abc"}, UserID: "user"},
+			&Impression{Variation: Variation{id: "abc", Key: "abc"}, UserID: "user"},
 			false,
 		}, {
 			"user found in cached variations returns cached variation",
@@ -154,7 +154,7 @@ func TestProject_GetVariation(t *testing.T) {
 			}},
 			"a",
 			"user",
-			&Impression{Variation: &Variation{id: "abc", Key: "abc"}, UserID: "user"},
+			&Impression{Variation: Variation{id: "abc", Key: "abc"}, UserID: "user"},
 			true,
 		}, {
 			"user is bucketed into experiment",
@@ -172,7 +172,7 @@ func TestProject_GetVariation(t *testing.T) {
 			}},
 			"a",
 			"user",
-			&Impression{Variation: &Variation{id: "abc", Key: "abc"}, UserID: "user"},
+			&Impression{Variation: Variation{id: "abc", Key: "abc"}, UserID: "user"},
 			true,
 		},
 	}

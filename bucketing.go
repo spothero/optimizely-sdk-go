@@ -35,7 +35,7 @@ const hashSeed = 1
 // holds the variation that the user was bucketed into, the user ID that generated
 // the outcome, and the timestamp at which the variation was generated.
 type Impression struct {
-	*Variation
+	Variation
 	UserID    string
 	Timestamp time.Time
 }
@@ -54,7 +54,7 @@ func (p Project) GetVariation(experimentName, userID string) *Impression {
 	forcedVariation, ok := experiment.forcedVariations[userID]
 	if ok {
 		return &Impression{
-			Variation: &forcedVariation,
+			Variation: forcedVariation,
 			UserID:    userID,
 			Timestamp: timestamp,
 		}
@@ -64,7 +64,7 @@ func (p Project) GetVariation(experimentName, userID string) *Impression {
 	experiment.mutex.RUnlock()
 	if ok {
 		return &Impression{
-			Variation: &cachedVariation,
+			Variation: cachedVariation,
 			UserID:    userID,
 			Timestamp: timestamp,
 		}
@@ -74,7 +74,7 @@ func (p Project) GetVariation(experimentName, userID string) *Impression {
 	defer experiment.mutex.Unlock()
 	experiment.cachedVariations[userID] = *variation
 	return &Impression{
-		Variation: variation,
+		Variation: *variation,
 		UserID:    userID,
 		Timestamp: timestamp,
 	}
