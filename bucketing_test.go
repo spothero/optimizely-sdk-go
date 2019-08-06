@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -104,7 +105,7 @@ func TestProject_GetVariation(t *testing.T) {
 		name                   string
 		project                Project
 		experimentName, userID string
-		expectedVariation      *Variation
+		expectedVariation      *Impression
 		shouldCache            bool
 	}{
 		{
@@ -137,7 +138,7 @@ func TestProject_GetVariation(t *testing.T) {
 			}},
 			"a",
 			"user",
-			&Variation{id: "abc", Key: "abc"},
+			&Impression{Variation: &Variation{id: "abc", Key: "abc"}, UserID: "user"},
 			false,
 		}, {
 			"user found in cached variations returns cached variation",
@@ -153,7 +154,7 @@ func TestProject_GetVariation(t *testing.T) {
 			}},
 			"a",
 			"user",
-			&Variation{id: "abc", Key: "abc"},
+			&Impression{Variation: &Variation{id: "abc", Key: "abc"}, UserID: "user"},
 			true,
 		}, {
 			"user is bucketed into experiment",
@@ -171,13 +172,21 @@ func TestProject_GetVariation(t *testing.T) {
 			}},
 			"a",
 			"user",
-			&Variation{id: "abc", Key: "abc"},
+			&Impression{Variation: &Variation{id: "abc", Key: "abc"}, UserID: "user"},
 			true,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.expectedVariation, test.project.GetVariation(test.experimentName, test.userID))
+			result := test.project.GetVariation(test.experimentName, test.userID)
+			if result != nil {
+				// make sure that the result timestamp is plausible, then overwrite with the zero time to
+				// assert the rest of the result struct is valid
+				now := time.Now()
+				assert.InDelta(t, now.Nanosecond(), result.Timestamp.Nanosecond(), float64(100*time.Millisecond))
+				result.Timestamp = time.Time{}
+			}
+			assert.Equal(t, test.expectedVariation, result)
 			if test.shouldCache {
 				assert.Contains(t, test.project.experiments[test.experimentName].cachedVariations, test.userID)
 			}

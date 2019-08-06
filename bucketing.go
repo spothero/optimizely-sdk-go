@@ -17,6 +17,7 @@ package optimizely
 import (
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/spaolacci/murmur3"
 )
@@ -30,9 +31,18 @@ const maxTrafficValue = 10000
 // value to seed the murmur hash algorithm with
 const hashSeed = 1
 
+// Impression is the outcome of bucketing a user into a specific variation. This type
+// holds the variation that the user was bucketed into, the user ID that generated
+// the outcome, and the timestamp at which the variation was generated.
+type Impression struct {
+	*Variation
+	UserID    string
+	Timestamp time.Time
+}
+
 // GetVariation returns a variation, if applicable, for a given experiment and a given user id. If no variation
 // is applicable, nil is returned.
-func (p Project) GetVariation(experimentName, userID string) *Variation {
+func (p Project) GetVariation(experimentName, userID string) *Impression {
 	experiment, ok := p.experiments[experimentName]
 	if !ok {
 		return nil
@@ -40,21 +50,34 @@ func (p Project) GetVariation(experimentName, userID string) *Variation {
 	if experiment.status != runningStatus {
 		return nil
 	}
+	timestamp := time.Now()
 	forcedVariation, ok := experiment.forcedVariations[userID]
 	if ok {
-		return &forcedVariation
+		return &Impression{
+			Variation: &forcedVariation,
+			UserID:    userID,
+			Timestamp: timestamp,
+		}
 	}
 	experiment.mutex.RLock()
 	cachedVariation, ok := experiment.cachedVariations[userID]
 	experiment.mutex.RUnlock()
 	if ok {
-		return &cachedVariation
+		return &Impression{
+			Variation: &cachedVariation,
+			UserID:    userID,
+			Timestamp: timestamp,
+		}
 	}
 	variation := experiment.findBucket(experiment.getBucketValue(userID))
 	experiment.mutex.Lock()
 	defer experiment.mutex.Unlock()
 	experiment.cachedVariations[userID] = *variation
-	return variation
+	return &Impression{
+		Variation: variation,
+		UserID:    userID,
+		Timestamp: timestamp,
+	}
 }
 
 // getBucketValue finds the value of the bucket given a unique ID (should be the user ID)
