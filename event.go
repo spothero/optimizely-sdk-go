@@ -104,7 +104,7 @@ func EnrichDecisions(enrich bool) func(*Events) error {
 	}
 }
 
-// EnrichDecisions sets the client name property on the events. By default,
+// ClientName sets the client name property on the events. By default,
 // the client name will be set to the path of this library, i.e.
 // github.com/spothero/optimizely-sdk-go.
 func ClientName(name string) func(*Events) error {
