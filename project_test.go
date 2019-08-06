@@ -116,24 +116,24 @@ func TestNewProjectFromDataFile(t *testing.T) {
 		}, {
 			"forced variation without variation present ignores forced variation",
 			[]byte(`
-		{
-		 "version": "4",
-		 "experiments": [
-		   {
-		     "variations": [
-		       {
-		         "id": "abc123",
-		         "key": "variation_1"
-		       }
-		     ],
-		     "trafficAllocation": [],
-		     "forcedVariations": {
-		       "abc": "variation_2"
-		     }
-		   }
-		 ]
-		}
-		`),
+{
+  "version": "4",
+  "experiments": [
+    {
+      "variations": [
+        {
+          "id": "abc123",
+          "key": "variation_1"
+        }
+      ],
+      "trafficAllocation": [],
+      "forcedVariations": {
+        "abc": "variation_2"
+      }
+    }
+  ]
+}
+`),
 			func(datafile []byte) Project {
 				proj := Project{
 					Version:     "4",
@@ -158,26 +158,26 @@ func TestNewProjectFromDataFile(t *testing.T) {
 		}, {
 			"unknown variation in traffic allocation returns error",
 			[]byte(`
-		{
-		 "version": "4",
-		 "experiments": [
-		   {
-		     "status": "Running",
-		     "variations": [],
-		     "id": "5678",
-		     "key": "an_experiment",
-		     "layerId": "layer",
-		     "trafficAllocation": [
-		       {
-		         "entityId": "abc123",
-		         "endOfRange": 3000
-		       }
-		     ],
-		     "forcedVariations": {}
-		   }
-		 ]
-		}
-		`),
+{
+  "version": "4",
+  "experiments": [
+    {
+      "status": "Running",
+      "variations": [],
+      "id": "5678",
+      "key": "an_experiment",
+      "layerId": "layer",
+      "trafficAllocation": [
+        {
+          "entityId": "abc123",
+          "endOfRange": 3000
+        }
+      ],
+      "forcedVariations": {}
+    }
+  ]
+}
+`),
 			func(_ []byte) Project { return Project{} },
 			true,
 		},
