@@ -42,18 +42,18 @@ func (p Project) GetVariation(experimentName, userID string) *Variation {
 	}
 	forcedVariation, ok := experiment.forcedVariations[userID]
 	if ok {
-		return forcedVariation
+		return &forcedVariation
 	}
 	experiment.mutex.RLock()
 	cachedVariation, ok := experiment.cachedVariations[userID]
 	experiment.mutex.RUnlock()
 	if ok {
-		return cachedVariation
+		return &cachedVariation
 	}
 	variation := experiment.findBucket(experiment.getBucketValue(userID))
 	experiment.mutex.Lock()
 	defer experiment.mutex.Unlock()
-	experiment.cachedVariations[userID] = variation
+	experiment.cachedVariations[userID] = *variation
 	return variation
 }
 
@@ -70,7 +70,7 @@ func (e Experiment) getBucketValue(bucketingID string) int {
 func (e Experiment) findBucket(bucketValue int) *Variation {
 	for _, allocation := range e.trafficAllocation {
 		if bucketValue < allocation.endOfRange {
-			return allocation.Variation
+			return &allocation.Variation
 		}
 	}
 	return nil

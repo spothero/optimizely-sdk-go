@@ -69,7 +69,7 @@ func TestExperiment_findBucket(t *testing.T) {
 			"variation is selected from traffic allocation",
 			Experiment{trafficAllocation: []trafficAllocation{{
 				endOfRange: 100,
-				Variation: &Variation{
+				Variation: Variation{
 					id:  "abc",
 					Key: "abc",
 				},
@@ -83,7 +83,7 @@ func TestExperiment_findBucket(t *testing.T) {
 			"bucket value higher than allocation end of range returns no variation",
 			Experiment{trafficAllocation: []trafficAllocation{{
 				endOfRange: 100,
-				Variation: &Variation{
+				Variation: Variation{
 					id:  "abc",
 					Key: "abc",
 				},
@@ -130,7 +130,7 @@ func TestProject_GetVariation(t *testing.T) {
 			Project{experiments: map[string]Experiment{
 				"a": {
 					status: runningStatus,
-					forcedVariations: map[string]*Variation{
+					forcedVariations: map[string]Variation{
 						"user": {id: "abc", Key: "abc"},
 					},
 				},
@@ -144,8 +144,8 @@ func TestProject_GetVariation(t *testing.T) {
 			Project{experiments: map[string]Experiment{
 				"a": {
 					status:           runningStatus,
-					forcedVariations: map[string]*Variation{},
-					cachedVariations: map[string]*Variation{
+					forcedVariations: map[string]Variation{},
+					cachedVariations: map[string]Variation{
 						"user": {id: "abc", Key: "abc"},
 					},
 					mutex: &sync.RWMutex{},
@@ -160,12 +160,12 @@ func TestProject_GetVariation(t *testing.T) {
 			Project{experiments: map[string]Experiment{
 				"a": {
 					status:           runningStatus,
-					forcedVariations: map[string]*Variation{},
+					forcedVariations: map[string]Variation{},
 					trafficAllocation: []trafficAllocation{{
 						endOfRange: maxTrafficValue,
-						Variation:  &Variation{id: "abc", Key: "abc"},
+						Variation:  Variation{id: "abc", Key: "abc"},
 					}},
-					cachedVariations: map[string]*Variation{},
+					cachedVariations: map[string]Variation{},
 					mutex:            &sync.RWMutex{},
 				},
 			}},
