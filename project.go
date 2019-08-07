@@ -179,21 +179,23 @@ const projCtxKey ctxKey = iota
 
 type projectContext struct {
 	Project
+	userID      string
 	impressions []Impression
 	mutex       sync.Mutex
 }
 
-// ToContext creates a context with the project as a value in the context.
-// By using GetVariation with the context returned from this method, not only
-// will each Impression be returned to the caller, but each Impression will
-// be recorded in the context. Once the lifecycle of the context is complete,
-// use EventsFromContext to create a unified Events object containing every
-// impression that occurred during the context's lifecycle. This provides
-// simplified API for bucketing users across multiple experiments and multiple
-// code-paths.
-func (p Project) ToContext(ctx context.Context) context.Context {
+// ToContext creates a context with the project as a value in the context for
+// a specific user ID. By using GetVariation with the context returned from
+// this method, not only will each Impression be returned to the caller, but
+// each Impression will be recorded in the context. Once the lifecycle of the
+// context is complete, use EventsFromContext to create a unified Events object
+// containing every impression that occurred during the context's lifecycle.
+// This provides simplified API for bucketing a user across multiple experiments
+// and multiple code-paths.
+func (p Project) ToContext(ctx context.Context, userID string) context.Context {
 	projectCtx := &projectContext{
 		Project:     p,
+		userID:      userID,
 		impressions: make([]Impression, 0),
 	}
 	return context.WithValue(ctx, projCtxKey, projectCtx)

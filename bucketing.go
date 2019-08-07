@@ -104,12 +104,12 @@ func (e Experiment) findBucket(bucketValue int) *Variation {
 // and the given user ID. The project from which to generate the variations
 // is loaded from the provided context object. See Project.ToContext for
 // more details.
-func GetVariation(ctx context.Context, experimentName, userID string) *Impression {
+func GetVariation(ctx context.Context, experimentName string) *Impression {
 	projectCtx, ok := ctx.Value(projCtxKey).(*projectContext)
 	if !ok {
 		return nil
 	}
-	impression := projectCtx.GetVariation(experimentName, userID)
+	impression := projectCtx.GetVariation(experimentName, projectCtx.userID)
 	if impression == nil {
 		return nil
 	}

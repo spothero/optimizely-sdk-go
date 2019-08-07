@@ -200,13 +200,14 @@ func TestNewProjectFromDataFile(t *testing.T) {
 
 func TestProject_ToContext(t *testing.T) {
 	p := Project{ProjectID: "id"}
-	ctx := p.ToContext(context.Background())
+	ctx := p.ToContext(context.Background(), "user")
 	projectCtx, ok := ctx.Value(projCtxKey).(*projectContext)
 	require.True(t, ok)
 	assert.Equal(
 		t,
 		&projectContext{
 			Project:     p,
+			userID:      "user",
 			impressions: []Impression{},
 		},
 		projectCtx,
