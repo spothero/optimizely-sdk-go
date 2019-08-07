@@ -182,9 +182,6 @@ func EventsFromContext(ctx context.Context, options ...func(*Events) error) *Eve
 	if len(projectCtx.impressions) == 0 {
 		return nil
 	}
-	//if options == nil {
-	//	options = make([]func(*Events) error, 0, len(projectCtx.impressions))
-	//}
 	for _, impression := range projectCtx.impressions {
 		options = append(options, ActivatedImpression(impression))
 	}
