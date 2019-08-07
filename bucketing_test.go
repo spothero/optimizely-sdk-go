@@ -60,17 +60,6 @@ func TestExperiment_getBucketValue(t *testing.T) {
 	}
 }
 
-func assertImpressionEqual(t *testing.T, expected, actual *Impression) {
-	if actual != nil {
-		// make sure that the result timestamp is plausible, then overwrite with the zero time to
-		// assert the rest of the result struct is valid
-		now := time.Now()
-		assert.InDelta(t, now.Nanosecond(), actual.Timestamp.Nanosecond(), float64(100*time.Millisecond))
-		expected.Timestamp = actual.Timestamp
-	}
-	assert.Equal(t, expected, actual)
-}
-
 func TestExperiment_findBucket(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -191,7 +180,14 @@ func TestProject_GetVariation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			result := test.project.GetVariation(test.experimentName, test.userID)
-			assertImpressionEqual(t, test.expectedImpression, result)
+			if test.expectedImpression != nil {
+				// make sure that the result timestamp is plausible, then overwrite with the zero time to
+				// assert the rest of the result struct is valid
+				now := time.Now()
+				assert.InDelta(t, now.Nanosecond(), result.Timestamp.Nanosecond(), float64(100*time.Millisecond))
+				test.expectedImpression.Timestamp = result.Timestamp
+			}
+			assert.Equal(t, test.expectedImpression, result)
 			if test.shouldCache {
 				assert.Contains(t, test.project.experiments[test.experimentName].cachedVariations, test.userID)
 			}
@@ -201,10 +197,10 @@ func TestProject_GetVariation(t *testing.T) {
 
 func TestGetVariation(t *testing.T) {
 	tests := []struct {
-		name               string
-		ctx                context.Context
-		experimentName     string
-		expectedImpression *Impression
+		name              string
+		ctx               context.Context
+		experimentName    string
+		expectedVariation Variation
 	}{
 		{
 			"impression returned from project stored in context",
@@ -218,27 +214,27 @@ func TestGetVariation(t *testing.T) {
 					},
 				}}.ToContext(context.Background(), "user"),
 			"a",
-			&Impression{Variation: Variation{id: "abc", Key: "abc"}, UserID: "user"},
+			Variation{id: "abc", Key: "abc"},
 		}, {
 			"no project stored in context returns nil",
 			context.Background(),
 			"",
-			nil,
+			Variation{},
 		}, {
 			"nil variation returns nil",
 			Project{experiments: map[string]Experiment{
 				"a": {status: "disabled"},
 			}}.ToContext(context.Background(), "user"),
 			"",
-			nil,
+			Variation{},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			result := GetVariation(test.ctx, test.experimentName)
-			assertImpressionEqual(t, test.expectedImpression, result)
-			if result != nil {
-				assert.Contains(t, test.ctx.Value(projCtxKey).(*projectContext).impressions, *result)
+			assert.Equal(t, test.expectedVariation, result)
+			if result.Key != "" {
+				assert.Len(t, test.ctx.Value(projCtxKey).(*projectContext).impressions, 1)
 			}
 		})
 	}

@@ -41,8 +41,10 @@ type Impression struct {
 	Timestamp time.Time
 }
 
-// GetVariation returns a variation, if applicable, for a given experiment and a given user id. If no variation
-// is applicable, nil is returned.
+// GetVariation returns an impression, if applicable, for a given experiment
+// and a given user id. If no variation is applicable, nil is returned. The
+// Impression returned by this method can be used later to generate events
+// for reporting to the Optimizely API.
 func (p Project) GetVariation(experimentName, userID string) *Impression {
 	experiment, ok := p.experiments[experimentName]
 	if !ok {
@@ -100,21 +102,20 @@ func (e Experiment) findBucket(bucketValue int) *Variation {
 	return nil
 }
 
-// GetVariation returns the variation, if applicable, for the given experiment name
-// and the given user ID. The project from which to generate the variations
-// is loaded from the provided context object. See Project.ToContext for
-// more details.
-func GetVariation(ctx context.Context, experimentName string) *Impression {
+// GetVariation returns the variation, if applicable, for the given experiment
+// name from the project and user ID stored in the context. See
+// Project.ToContext for more details.
+func GetVariation(ctx context.Context, experimentName string) Variation {
 	projectCtx, ok := ctx.Value(projCtxKey).(*projectContext)
 	if !ok {
-		return nil
+		return Variation{}
 	}
 	impression := projectCtx.GetVariation(experimentName, projectCtx.userID)
 	if impression == nil {
-		return nil
+		return Variation{}
 	}
 	projectCtx.mutex.Lock()
 	defer projectCtx.mutex.Unlock()
 	projectCtx.impressions = append(projectCtx.impressions, *impression)
-	return impression
+	return impression.Variation
 }
