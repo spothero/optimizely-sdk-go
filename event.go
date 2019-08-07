@@ -23,7 +23,6 @@ import (
 
 type event struct {
 	EntityID  string `json:"entity_id"`
-	Key       string `json:"key"`
 	Type      string `json:"type"`
 	Timestamp int64  `json:"timestamp"`
 	UUID      string `json:"uuid"`
@@ -49,7 +48,7 @@ type eventBatch struct {
 	AccountID       string    `json:"account_id"`
 	AnonymizeIP     bool      `json:"anonymize_ip"`
 	ClientName      string    `json:"client_name"`
-	ClientVersion   string    `json:"client_version"`
+	ClientVersion   *string   `json:"client_version,omitempty"`
 	EnrichDecisions bool      `json:"enrich_decisions"`
 	Visitors        []visitor `json:"visitors"`
 }
@@ -63,17 +62,25 @@ type Events eventBatch
 // module's dependencies.
 const packagePath = "github.com/spothero/optimizely-sdk-go"
 
-// default version of this library to report to Optimizely. This will be set
-// to the version of this library by default
-var clientVersion = "unset"
+// Version of this library to report to Optimizely. If unset and the version
+// cannot be pulled out of the Go module info, it will not be sent.
+var clientVersion = ""
 
 // NewEvents constructs a set of reportable events from the provided options.
 func NewEvents(options ...func(*Events) error) (Events, error) {
-	events := Events{ClientName: packagePath, ClientVersion: clientVersion}
+	events := Events{
+		ClientName:      packagePath,
+		ClientVersion:   &clientVersion,
+		AnonymizeIP:     true,
+		EnrichDecisions: true,
+	}
 	for _, option := range options {
 		if err := option(&events); err != nil {
 			return Events{}, err
 		}
+	}
+	if *events.ClientVersion == "" {
+		events.ClientVersion = nil
 	}
 	if len(events.Visitors) == 0 {
 		return Events{}, fmt.Errorf("cannot build event with no activated variations")
@@ -96,7 +103,7 @@ func ActivatedImpression(v Impression) func(*Events) error {
 	}
 }
 
-// EnrichDecisions sets the enrich decisions property on the events.
+// EnrichDecisions sets the enrich decisions property on the events. Defaults to true.
 func EnrichDecisions(enrich bool) func(*Events) error {
 	return func(e *Events) error {
 		e.EnrichDecisions = enrich
@@ -116,24 +123,22 @@ func ClientName(name string) func(*Events) error {
 
 // ClientVersion overrides the client version of this library. If using Go 1.12+
 // and Go modules, the version of this library will be extracted from the build
-// information. Otherwise, unless ClientVersion is set, the version reported
-// to Optimizely will be "unset".
+// information. Otherwise, unless ClientVersion is set here, no version will
+// be reported to Optimizely.
 func ClientVersion(version string) func(*Events) error {
 	return func(e *Events) error {
-		e.ClientVersion = version
+		e.ClientVersion = &version
 		return nil
 	}
 }
 
-// AnonymizeIP sets the anonymize IP flag on the events.
+// AnonymizeIP sets the anonymize IP flag on the events. Defaults to true.
 func AnonynmizeIP(anonymize bool) func(*Events) error {
 	return func(e *Events) error {
 		e.AnonymizeIP = anonymize
 		return nil
 	}
 }
-
-const impressionEvent = "campaign_activated"
 
 // toVisitor converts an impression to the visitor data structure for sending
 // to the Optimizely API.
@@ -145,8 +150,7 @@ func (v Impression) toVisitor() visitor {
 	}
 	ev := event{
 		EntityID:  v.experiment.layerID,
-		Type:      impressionEvent,
-		Key:       impressionEvent,
+		Type:      "campaign_activated",
 		Timestamp: v.Timestamp.UTC().UnixNano() / int64(time.Millisecond/time.Nanosecond),
 		UUID:      uuid.New().String(),
 	}
