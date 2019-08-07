@@ -1,3 +1,17 @@
+// Copyright 2019 SpotHero
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package optimizely
 
 import (
@@ -54,7 +68,6 @@ func TestImpression_toVisitor(t *testing.T) {
 				Events: []event{{
 					EntityID:  "layer",
 					Type:      "campaign_activated",
-					Key:       "campaign_activated",
 					Timestamp: int64(10 * time.Second / time.Millisecond),
 				}},
 			}},
@@ -64,6 +77,7 @@ func TestImpression_toVisitor(t *testing.T) {
 }
 
 func TestNewEvents(t *testing.T) {
+	version := "version"
 	tests := []struct {
 		name           string
 		options        []func(*Events) error
@@ -103,17 +117,17 @@ func TestNewEvents(t *testing.T) {
 						Timestamp: time.Unix(20, 0),
 					},
 				),
-				EnrichDecisions(true),
+				EnrichDecisions(false),
 				ClientName("client"),
-				ClientVersion("version"),
-				AnonynmizeIP(true),
+				ClientVersion(version),
+				AnonynmizeIP(false),
 			},
 			Events{
 				AccountID:       "account",
-				AnonymizeIP:     true,
+				AnonymizeIP:     false,
 				ClientName:      "client",
-				ClientVersion:   "version",
-				EnrichDecisions: true,
+				ClientVersion:   &version,
+				EnrichDecisions: false,
 				Visitors: []visitor{
 					{
 						ID: "user_1",
@@ -126,7 +140,6 @@ func TestNewEvents(t *testing.T) {
 							Events: []event{{
 								EntityID:  "layer_1",
 								Type:      "campaign_activated",
-								Key:       "campaign_activated",
 								Timestamp: int64(10 * time.Second / time.Millisecond),
 							}},
 						}},
@@ -141,7 +154,6 @@ func TestNewEvents(t *testing.T) {
 							Events: []event{{
 								EntityID:  "layer_2",
 								Type:      "campaign_activated",
-								Key:       "campaign_activated",
 								Timestamp: int64(20 * time.Second / time.Millisecond),
 							}},
 						}},
@@ -178,6 +190,36 @@ func TestNewEvents(t *testing.T) {
 			[]func(*Events) error{},
 			Events{},
 			true,
+		}, {
+			"unset client version sets version to nil",
+			[]func(*Events) error{
+				ActivatedImpression(
+					Impression{
+						Variation: Variation{
+							experiment: &Experiment{
+								project: &Project{AccountID: "account"},
+							},
+						},
+						Timestamp: time.Unix(0, 0),
+					},
+				),
+			},
+			Events{
+				ClientVersion:   nil,
+				AccountID:       "account",
+				ClientName:      "github.com/spothero/optimizely-sdk-go",
+				AnonymizeIP:     true,
+				EnrichDecisions: true,
+				Visitors: []visitor{
+					{
+						Snapshots: []snapshot{{
+							Decisions: []decision{{}},
+							Events:    []event{{Type: "campaign_activated"}},
+						}},
+					},
+				},
+			},
+			false,
 		},
 	}
 	for _, test := range tests {
