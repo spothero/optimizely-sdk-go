@@ -294,11 +294,20 @@ func TestEventsFromContext(t *testing.T) {
 			},
 			nil,
 			true,
+		}, {
+			"no project in context returns nil",
+			nil,
+			[]func(*Events) error{},
+			nil,
+			false,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.WithValue(context.Background(), projCtxKey, test.projectCtx)
+			ctx := context.Background()
+			if test.projectCtx != nil {
+				ctx = context.WithValue(ctx, projCtxKey, test.projectCtx)
+			}
 			if test.expectPanic {
 				assert.Panics(t, func() { EventsFromContext(ctx, test.options...) })
 				return
