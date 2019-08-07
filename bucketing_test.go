@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -69,7 +70,7 @@ func TestExperiment_findBucket(t *testing.T) {
 			"variation is selected from traffic allocation",
 			Experiment{trafficAllocation: []trafficAllocation{{
 				endOfRange: 100,
-				Variation: &Variation{
+				Variation: Variation{
 					id:  "abc",
 					Key: "abc",
 				},
@@ -83,7 +84,7 @@ func TestExperiment_findBucket(t *testing.T) {
 			"bucket value higher than allocation end of range returns no variation",
 			Experiment{trafficAllocation: []trafficAllocation{{
 				endOfRange: 100,
-				Variation: &Variation{
+				Variation: Variation{
 					id:  "abc",
 					Key: "abc",
 				},
@@ -104,7 +105,7 @@ func TestProject_GetVariation(t *testing.T) {
 		name                   string
 		project                Project
 		experimentName, userID string
-		expectedVariation      *Variation
+		expectedVariation      *Impression
 		shouldCache            bool
 	}{
 		{
@@ -130,22 +131,22 @@ func TestProject_GetVariation(t *testing.T) {
 			Project{experiments: map[string]Experiment{
 				"a": {
 					status: runningStatus,
-					forcedVariations: map[string]*Variation{
+					forcedVariations: map[string]Variation{
 						"user": {id: "abc", Key: "abc"},
 					},
 				},
 			}},
 			"a",
 			"user",
-			&Variation{id: "abc", Key: "abc"},
+			&Impression{Variation: Variation{id: "abc", Key: "abc"}, UserID: "user"},
 			false,
 		}, {
 			"user found in cached variations returns cached variation",
 			Project{experiments: map[string]Experiment{
 				"a": {
 					status:           runningStatus,
-					forcedVariations: map[string]*Variation{},
-					cachedVariations: map[string]*Variation{
+					forcedVariations: map[string]Variation{},
+					cachedVariations: map[string]Variation{
 						"user": {id: "abc", Key: "abc"},
 					},
 					mutex: &sync.RWMutex{},
@@ -153,31 +154,39 @@ func TestProject_GetVariation(t *testing.T) {
 			}},
 			"a",
 			"user",
-			&Variation{id: "abc", Key: "abc"},
+			&Impression{Variation: Variation{id: "abc", Key: "abc"}, UserID: "user"},
 			true,
 		}, {
 			"user is bucketed into experiment",
 			Project{experiments: map[string]Experiment{
 				"a": {
 					status:           runningStatus,
-					forcedVariations: map[string]*Variation{},
+					forcedVariations: map[string]Variation{},
 					trafficAllocation: []trafficAllocation{{
 						endOfRange: maxTrafficValue,
-						Variation:  &Variation{id: "abc", Key: "abc"},
+						Variation:  Variation{id: "abc", Key: "abc"},
 					}},
-					cachedVariations: map[string]*Variation{},
+					cachedVariations: map[string]Variation{},
 					mutex:            &sync.RWMutex{},
 				},
 			}},
 			"a",
 			"user",
-			&Variation{id: "abc", Key: "abc"},
+			&Impression{Variation: Variation{id: "abc", Key: "abc"}, UserID: "user"},
 			true,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.expectedVariation, test.project.GetVariation(test.experimentName, test.userID))
+			result := test.project.GetVariation(test.experimentName, test.userID)
+			if result != nil {
+				// make sure that the result timestamp is plausible, then overwrite with the zero time to
+				// assert the rest of the result struct is valid
+				now := time.Now()
+				assert.InDelta(t, now.Nanosecond(), result.Timestamp.Nanosecond(), float64(100*time.Millisecond))
+				result.Timestamp = time.Time{}
+			}
+			assert.Equal(t, test.expectedVariation, result)
 			if test.shouldCache {
 				assert.Contains(t, test.project.experiments[test.experimentName].cachedVariations, test.userID)
 			}

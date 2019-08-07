@@ -42,21 +42,23 @@ type Experiment struct {
 	layerID           string
 	status            string
 	trafficAllocation []trafficAllocation
-	forcedVariations  map[string]*Variation
+	forcedVariations  map[string]Variation
 	mutex             *sync.RWMutex
-	cachedVariations  map[string]*Variation
+	cachedVariations  map[string]Variation
+	project           *Project // backref to the owning project
 }
 
 // Variation represents a variation of an Optimizely experiment.
 type Variation struct {
-	id  string
-	Key string
+	id         string
+	Key        string
+	experiment *Experiment // backref to the owning experiment
 }
 
 // trafficAllocation defines the value of traffic to direct to a particular experiment variation.
 type trafficAllocation struct {
 	endOfRange int
-	Variation  *Variation
+	Variation  Variation
 }
 
 // datafileExperiment is the structure of the experiment within a datafile. This
@@ -102,6 +104,15 @@ func NewProjectFromDataFile(datafileJSON []byte) (Project, error) {
 	if df.Version != supportedDatafileVersion {
 		return Project{}, fmt.Errorf("could not create project from unsupported datafile version %v", df.Version)
 	}
+
+	project := Project{
+		Version:     df.Version,
+		Revision:    df.Revision,
+		ProjectID:   df.ProjectID,
+		AccountID:   df.AccountID,
+		RawDataFile: datafileJSON,
+	}
+
 	// convert list of experiments in the datafile to a map of experiments for faster lookup
 	experiments := make(map[string]Experiment, len(df.Experiments))
 	for _, exp := range df.Experiments {
@@ -110,16 +121,18 @@ func NewProjectFromDataFile(datafileJSON []byte) (Project, error) {
 			Key:              exp.Key,
 			layerID:          exp.LayerID,
 			status:           exp.Status,
-			cachedVariations: make(map[string]*Variation),
+			cachedVariations: make(map[string]Variation),
 			mutex:            &sync.RWMutex{},
+			project:          &project,
 		}
 		// store variations by their ID, but keep track by key for constructing the force variations map later
 		variationsByID := make(map[string]Variation, len(exp.Variations))
 		variationsByKey := make(map[string]Variation, len(exp.Variations))
 		for _, v := range exp.Variations {
 			variation := Variation{
-				id:  v.ID,
-				Key: v.Key,
+				id:         v.ID,
+				Key:        v.Key,
+				experiment: &experiment,
 			}
 			variationsByID[v.ID] = variation
 			variationsByKey[v.Key] = variation
@@ -135,31 +148,24 @@ func NewProjectFromDataFile(datafileJSON []byte) (Project, error) {
 				ta,
 				trafficAllocation{
 					endOfRange: a.EndOfRange,
-					Variation:  &variation,
+					Variation:  variation,
 				},
 			)
 		}
 		experiment.trafficAllocation = ta
 
-		forcedVariations := make(map[string]*Variation, len(exp.ForcedVariations))
+		forcedVariations := make(map[string]Variation, len(exp.ForcedVariations))
 		for userID, variationName := range exp.ForcedVariations {
 			variation, ok := variationsByKey[variationName]
 			if !ok {
 				continue
 			}
-			forcedVariations[userID] = &variation
+			forcedVariations[userID] = variation
 		}
 		experiment.forcedVariations = forcedVariations
-
 		experiments[experiment.Key] = experiment
 	}
+	project.experiments = experiments
 
-	return Project{
-		Version:     df.Version,
-		Revision:    df.Revision,
-		ProjectID:   df.ProjectID,
-		AccountID:   df.AccountID,
-		experiments: experiments,
-		RawDataFile: datafileJSON,
-	}, nil
+	return project, nil
 }
