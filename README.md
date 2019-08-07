@@ -12,7 +12,7 @@ for other langauges nor is it officially endorsed by Optimizely. PRs for feature
 Supported features:
 
 - [x] [Basic A/B test bucketing](https://docs.developers.optimizely.com/full-stack/docs/run-a-b-tests)
-- [ ] Impression reporting
+- [x] Impression reporting
 - [ ] [Audiences](https://docs.developers.optimizely.com/full-stack/docs/define-audiences-and-attributes)
 - [ ] [Mutual Exclusion](https://docs.developers.optimizely.com/full-stack/docs/use-mutual-exclusion)
 - [ ] [Feature tests](https://docs.developers.optimizely.com/full-stack/docs/run-feature-tests)
