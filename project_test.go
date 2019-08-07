@@ -15,10 +15,12 @@
 package optimizely
 
 import (
+	"context"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewProjectFromDataFile(t *testing.T) {
@@ -194,4 +196,19 @@ func TestNewProjectFromDataFile(t *testing.T) {
 			assert.NoError(t, err)
 		})
 	}
+}
+
+func TestProject_ToContext(t *testing.T) {
+	p := Project{ProjectID: "id"}
+	ctx := p.ToContext(context.Background())
+	projectCtx, ok := ctx.Value(projCtxKey).(*projectContext)
+	require.True(t, ok)
+	assert.Equal(
+		t,
+		&projectContext{
+			Project:     p,
+			impressions: []Impression{},
+		},
+		projectCtx,
+	)
 }

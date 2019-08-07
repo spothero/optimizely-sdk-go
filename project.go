@@ -15,6 +15,7 @@
 package optimizely
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -168,4 +169,32 @@ func NewProjectFromDataFile(datafileJSON []byte) (Project, error) {
 	project.experiments = experiments
 
 	return project, nil
+}
+
+// type used to place the project within context.Context
+type ctxKey int
+
+// the value used to place the project within context.Context
+const projCtxKey ctxKey = iota
+
+type projectContext struct {
+	Project
+	impressions []Impression
+	mutex       sync.Mutex
+}
+
+// ToContext creates a context with the project as a value in the context.
+// By using GetVariation with the context returned from this method, not only
+// will each Impression be returned to the caller, but each Impression will
+// be recorded in the context. Once the lifecycle of the context is complete,
+// use EventsFromContext to create a unified Events object containing every
+// impression that occurred during the context's lifecycle. This provides
+// simplified API for bucketing users across multiple experiments and multiple
+// code-paths.
+func (p Project) ToContext(ctx context.Context) context.Context {
+	projectCtx := &projectContext{
+		Project:     p,
+		impressions: make([]Impression, 0),
+	}
+	return context.WithValue(ctx, projCtxKey, projectCtx)
 }

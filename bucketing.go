@@ -15,6 +15,7 @@
 package optimizely
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"time"
@@ -97,4 +98,23 @@ func (e Experiment) findBucket(bucketValue int) *Variation {
 		}
 	}
 	return nil
+}
+
+// GetVariation returns the variation, if applicable, for the given experiment name
+// and the given user ID. The project from which to generate the variations
+// is loaded from the provided context object. See Project.ToContext for
+// more details.
+func GetVariation(ctx context.Context, experimentName, userID string) *Impression {
+	projectCtx, ok := ctx.Value(projCtxKey).(*projectContext)
+	if !ok {
+		return nil
+	}
+	impression := projectCtx.GetVariation(experimentName, userID)
+	if impression == nil {
+		return nil
+	}
+	projectCtx.mutex.Lock()
+	defer projectCtx.mutex.Unlock()
+	projectCtx.impressions = append(projectCtx.impressions, *impression)
+	return impression
 }
