@@ -4,8 +4,8 @@ run:
 
 linters:
   enable:
-    - golint
     - gofmt
+    - stylecheck
     - staticcheck
     - vet
     - misspell
@@ -16,3 +16,8 @@ linters:
     - unused
     - varcheck
   enable-all: false
+  fast: false
+
+linters-settings:
+  misspell:
+    locale: US

@@ -134,7 +134,7 @@ func ClientVersion(version string) func(*Events) error {
 }
 
 // AnonymizeIP sets the anonymize IP flag on the events. Defaults to true.
-func AnonynmizeIP(anonymize bool) func(*Events) error {
+func AnonymizeIP(anonymize bool) func(*Events) error {
 	return func(e *Events) error {
 		e.AnonymizeIP = anonymize
 		return nil
