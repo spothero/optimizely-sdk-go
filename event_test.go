@@ -133,7 +133,7 @@ func TestNewEvents(t *testing.T) {
 				EnrichDecisions(false),
 				ClientName("client"),
 				ClientVersion(version),
-				AnonynmizeIP(false),
+				AnonymizeIP(false),
 			},
 			Events{
 				AccountID:       "account",
@@ -264,7 +264,7 @@ func TestEventsFromContext(t *testing.T) {
 					Timestamp: time.Unix(0, 0),
 				}},
 			},
-			[]func(*Events) error{ClientName(""), AnonynmizeIP(false), EnrichDecisions(false)},
+			[]func(*Events) error{ClientName(""), AnonymizeIP(false), EnrichDecisions(false)},
 			&Events{
 				Visitors: []visitor{{
 					Snapshots: []snapshot{{
