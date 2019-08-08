@@ -15,6 +15,7 @@
 package optimizely
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -91,14 +92,14 @@ func NewEvents(options ...func(*Events) error) (Events, error) {
 // ActivatedImpression adds the variation impression to the set of reported events. Note that
 // while many impressions can be added as events, each impression must have originated from
 // the same Optimizely account or an error will be returned while creating the events.
-func ActivatedImpression(v Impression) func(*Events) error {
+func ActivatedImpression(i Impression) func(*Events) error {
 	return func(e *Events) error {
 		if e.AccountID == "" {
-			e.AccountID = v.experiment.project.AccountID
-		} else if e.AccountID != v.experiment.project.AccountID {
+			e.AccountID = i.experiment.project.AccountID
+		} else if e.AccountID != i.experiment.project.AccountID {
 			return fmt.Errorf("activated variations must all be in the same account")
 		}
-		e.Visitors = append(e.Visitors, v.toVisitor())
+		e.Visitors = append(e.Visitors, i.toVisitor())
 		return nil
 	}
 }
@@ -161,4 +162,45 @@ func (v Impression) toVisitor() visitor {
 			Events:    []event{ev},
 		}},
 	}
+}
+
+// EventsFromContext creates Events from all the impressions that were seen
+// during the lifecycle of the provided context. If no impressions were seen
+// or no project was found in the provided context, nil is returned.
+// The options provided to this function match the options provided to
+// NewEvents with the exception that the ActivatedImpression function
+// should never be provided as an option and may result in a panic if
+// the provided impression was created by a project in a different account from
+// the project stored in the context.
+func EventsFromContext(ctx context.Context, options ...func(*Events) error) *Events {
+	projectCtx, ok := ctx.Value(projCtxKey).(*projectContext)
+	if !ok {
+		return nil
+	}
+	projectCtx.mutex.Lock()
+	defer projectCtx.mutex.Unlock()
+	if len(projectCtx.impressions) == 0 {
+		return nil
+	}
+	for _, impression := range projectCtx.impressions {
+		options = append(options, ActivatedImpression(impression))
+	}
+	// There can never be an error here when this API is used correctly because
+	// there are only two cases that can cause an error: no impressions, and
+	// impressions from different projects. We know that there are impressions
+	// because the case of no impressions is handled above, and we know that all
+	// impressions are from the same project because they had to be inserted
+	// into the context by the same project. Thus, the only way an error
+	// can occur here is if the API is misused and an impression from
+	// a different project was passed as an additional option to this
+	// function.
+	events, err := NewEvents(options...)
+	if err != nil {
+		panic(err)
+	}
+
+	// reset impressions in case the project context gets reused
+	projectCtx.impressions = make([]Impression, 0)
+
+	return &events
 }

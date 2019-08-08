@@ -15,6 +15,7 @@
 package optimizely
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -39,6 +40,18 @@ func assertVisitorEqual(t *testing.T, expected, actual visitor) {
 		}
 	}
 	assert.Equal(t, expected, actual)
+}
+
+func assertEventsEqual(t *testing.T, expected, actual Events) {
+	assert.Equal(t, expected.AccountID, actual.AccountID)
+	assert.Equal(t, expected.AnonymizeIP, actual.AnonymizeIP)
+	assert.Equal(t, expected.ClientName, actual.ClientName)
+	assert.Equal(t, expected.ClientVersion, actual.ClientVersion)
+	assert.Equal(t, expected.EnrichDecisions, actual.EnrichDecisions)
+	assert.Equal(t, len(expected.Visitors), len(actual.Visitors))
+	for i := range expected.Visitors {
+		assertVisitorEqual(t, expected.Visitors[i], actual.Visitors[i])
+	}
 }
 
 func TestImpression_toVisitor(t *testing.T) {
@@ -230,15 +243,82 @@ func TestNewEvents(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, test.expectedEvents.AccountID, events.AccountID)
-			assert.Equal(t, test.expectedEvents.AnonymizeIP, events.AnonymizeIP)
-			assert.Equal(t, test.expectedEvents.ClientName, events.ClientName)
-			assert.Equal(t, test.expectedEvents.ClientVersion, events.ClientVersion)
-			assert.Equal(t, test.expectedEvents.EnrichDecisions, events.EnrichDecisions)
-			assert.Equal(t, len(test.expectedEvents.Visitors), len(events.Visitors))
-			for i := range test.expectedEvents.Visitors {
-				assertVisitorEqual(t, test.expectedEvents.Visitors[i], events.Visitors[i])
+			assertEventsEqual(t, test.expectedEvents, events)
+		})
+	}
+}
+
+func TestEventsFromContext(t *testing.T) {
+	tests := []struct {
+		name           string
+		projectCtx     *projectContext
+		options        []func(*Events) error
+		expectedEvents *Events
+		expectPanic    bool
+	}{
+		{
+			"events pulled from impressions in context",
+			&projectContext{
+				impressions: []Impression{{
+					Variation: Variation{experiment: &Experiment{project: &Project{}}},
+					Timestamp: time.Unix(0, 0),
+				}},
+			},
+			[]func(*Events) error{ClientName(""), AnonynmizeIP(false), EnrichDecisions(false)},
+			&Events{
+				Visitors: []visitor{{
+					Snapshots: []snapshot{{
+						Decisions: []decision{{}},
+						Events:    []event{{Type: "campaign_activated"}},
+					}},
+				}},
+			},
+			false,
+		}, {
+			"no impressions returns nil",
+			&projectContext{impressions: []Impression{}},
+			[]func(*Events) error{},
+			nil,
+			false,
+		}, {
+			"improper usage with additional recorded impression from another account panics",
+			&projectContext{
+				impressions: []Impression{{
+					Variation: Variation{experiment: &Experiment{project: &Project{AccountID: "account"}}},
+				}},
+			},
+			[]func(*Events) error{
+				ActivatedImpression(
+					Impression{Variation: Variation{experiment: &Experiment{project: &Project{AccountID: "account_2"}}}},
+				),
+			},
+			nil,
+			true,
+		}, {
+			"no project in context returns nil",
+			nil,
+			[]func(*Events) error{},
+			nil,
+			false,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			if test.projectCtx != nil {
+				ctx = context.WithValue(ctx, projCtxKey, test.projectCtx)
 			}
+			if test.expectPanic {
+				assert.Panics(t, func() { EventsFromContext(ctx, test.options...) })
+				return
+			}
+			result := EventsFromContext(ctx, test.options...)
+			if test.expectedEvents == nil {
+				assert.Nil(t, result)
+				return
+			}
+			assertEventsEqual(t, *test.expectedEvents, *result)
+			assert.Len(t, test.projectCtx.impressions, 0)
 		})
 	}
 }
