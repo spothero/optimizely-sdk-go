@@ -17,6 +17,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -26,7 +27,10 @@ import (
 	"golang.org/x/xerrors"
 )
 
-const baseURL = "https://api.optimizely.com/v2"
+const (
+	baseURL        = "https://api.optimizely.com/v2"
+	eventsEndpoint = "https://logx.optimizely.com/v1/events"
+)
 
 // Project is the API representation of an Optimizely project
 type Project struct {
@@ -132,4 +136,16 @@ func (c Client) GetEnvironment(name, projectName string) (Environment, error) {
 		}
 	}
 	return Environment{}, fmt.Errorf("could not find environment with name %s", name)
+}
+
+// ReportEvents sends serialized events to the Optimizely events API.
+func (c Client) ReportEvents(events []byte) error {
+	response, err := c.apiClient.(*client).Post(eventsEndpoint, "application/json", bytes.NewBuffer(events))
+	if err != nil {
+		return xerrors.Errorf("error reporting events to Optimizely API: %w", err)
+	}
+	if response.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("unexpected status code (%d) received from events API", response.StatusCode)
+	}
+	return nil
 }

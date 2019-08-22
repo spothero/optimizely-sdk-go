@@ -16,10 +16,13 @@ package optimizely
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/xerrors"
+	"optimizely-sdk-go/api"
 )
 
 type event struct {
@@ -203,4 +206,14 @@ func EventsFromContext(ctx context.Context, options ...func(*Events) error) *Eve
 	projectCtx.impressions = make([]Impression, 0)
 
 	return &events
+}
+
+// ReportEvents sends the provided events to the Optimizely reporting API.
+func ReportEvents(events Events) error {
+	eventsJSON, err := json.Marshal(events)
+	if err != nil {
+		return xerrors.Errorf("error marshaling events to JSON: %w", err)
+	}
+	// the events endpoint does not require auth nor take any other parameters so just use the empty API client
+	return api.NewClient().ReportEvents(eventsJSON)
 }
