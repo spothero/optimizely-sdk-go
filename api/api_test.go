@@ -15,6 +15,7 @@
 package api
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockClient struct {
@@ -548,6 +550,62 @@ func TestClient_GetEnvironment(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.Equal(t, test.expectedEnvironment, environment)
+		})
+	}
+}
+
+func TestClient_reportEvents(t *testing.T) {
+	tests := []struct {
+		name      string
+		body      []byte
+		response  *http.Response
+		httpErr   error
+		expectErr bool
+	}{
+		{
+			"events are sent to the Optimizely API",
+			[]byte(`
+{
+  "account_id": "account",
+  "anonymize_ip": true,
+  "client_name": "client",
+  "client_version": "version",
+  "enrich_decisions": true,
+  "visitors": []
+}
+`),
+			&http.Response{StatusCode: http.StatusNoContent},
+			nil,
+			false,
+		}, {
+			"error POSTing to Optimizely returns error",
+			[]byte{},
+			nil,
+			fmt.Errorf("something bad happened"),
+			true,
+		}, {
+			"non-204 status code from Optimizely returns error",
+			[]byte{},
+			&http.Response{StatusCode: http.StatusBadRequest},
+			nil,
+			true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mt := &mockTransport{}
+			mt.On("RoundTrip", mock.Anything).Return(test.response, test.httpErr).Once()
+			defer mt.AssertExpectations(t)
+			err := Client{&client{Client: http.Client{Transport: mt}}}.ReportEvents(test.body)
+			if test.expectErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			sentBody := bytes.Buffer{}
+			_, err = sentBody.ReadFrom(mt.Calls[0].Arguments[0].(*http.Request).Body)
+			require.NoError(t, err)
+			assert.Equal(t, string(test.body), sentBody.String())
 		})
 	}
 }
