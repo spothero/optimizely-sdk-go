@@ -26,9 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockTransport struct {
-	mock.Mock
-}
+type mockTransport struct{ mock.Mock }
 
 func (m *mockTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	call := m.Called(request)
