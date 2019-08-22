@@ -35,7 +35,7 @@ type apiClient interface {
 	sendPaginatedAPIRequest(method, url string, body io.Reader, query url.Values, headers http.Header) ([]*http.Response, error)
 }
 
-// Client is the stucture used for interacting with the Optimizely API. For most functionality, the Client must be
+// Client is the structure used for interacting with the Optimizely API. For most functionality, the Client must be
 // built with an API token.
 type Client struct {
 	apiClient
