@@ -13,6 +13,7 @@ Supported features:
 
 - [x] [Basic A/B test bucketing](https://docs.developers.optimizely.com/full-stack/docs/run-a-b-tests)
 - [x] Impression reporting
+- [x] Read Projects, Environments, and Datafiles from the REST API
 - [ ] [Audiences](https://docs.developers.optimizely.com/full-stack/docs/define-audiences-and-attributes)
 - [ ] [Mutual Exclusion](https://docs.developers.optimizely.com/full-stack/docs/use-mutual-exclusion)
 - [ ] [Feature tests](https://docs.developers.optimizely.com/full-stack/docs/run-feature-tests)
