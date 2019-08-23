@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/spothero/optimizely-sdk-go/api"
 	"golang.org/x/xerrors"
-	"optimizely-sdk-go/api"
 )
 
 type event struct {
