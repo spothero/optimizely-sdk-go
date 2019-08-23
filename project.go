@@ -62,43 +62,43 @@ type trafficAllocation struct {
 	Variation  Variation
 }
 
-// datafileExperiment is the structure of the experiment within a datafile. This
+// DatafileExperiment is the structure of the experiment within a datafile. This
 // type is only used when deserializing the datafile.
-type datafileExperiment struct {
+type DatafileExperiment struct {
 	ID                string                      `json:"id"`
 	Key               string                      `json:"key"`
 	LayerID           string                      `json:"layerId"`
 	Status            string                      `json:"status"`
-	Variations        []datafileVariation         `json:"variations"`
-	TrafficAllocation []datafileTrafficAllocation `json:"trafficAllocation"`
+	Variations        []DatafileVariation         `json:"variations"`
+	TrafficAllocation []DatafileTrafficAllocation `json:"trafficAllocation"`
 	ForcedVariations  map[string]string           `json:"forcedVariations"`
 }
 
-// datafileVariation is an experiment variation within a datafile used for deserialization.
-type datafileVariation struct {
+// DatafileVariation is an experiment variation within a datafile used for deserialization.
+type DatafileVariation struct {
 	ID  string `json:"id"`
 	Key string `json:"key"`
 }
 
-// datafileTrafficAllocation is the structure of the traffic allocation with a datafile. This type
+// DatafileTrafficAllocation is the structure of the traffic allocation with a datafile. This type
 // is only used when deserializing the datafile.
-type datafileTrafficAllocation struct {
+type DatafileTrafficAllocation struct {
 	EntityID   string `json:"entityId"`
 	EndOfRange int    `json:"endOfRange"`
 }
 
-// datafile used for loading the JSON datafile from Optimizely
-type datafile struct {
+// Datafile used for loading the JSON datafile from Optimizely
+type Datafile struct {
 	Version     string               `json:"version"`
 	Revision    string               `json:"revision"`
 	ProjectID   string               `json:"projectId"`
 	AccountID   string               `json:"accountId"`
-	Experiments []datafileExperiment `json:"experiments"`
+	Experiments []DatafileExperiment `json:"experiments"`
 }
 
 // NewProjectFromDataFile creates a new Optimizely project given the raw JSON datafile
 func NewProjectFromDataFile(datafileJSON []byte) (Project, error) {
-	df := datafile{}
+	df := Datafile{}
 	if err := json.Unmarshal(datafileJSON, &df); err != nil {
 		return Project{}, err
 	}
