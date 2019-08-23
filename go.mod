@@ -1,4 +1,4 @@
-module optimizely-sdk-go
+module github.com/spothero/optimizely-sdk-go
 
 go 1.12
 
