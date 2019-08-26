@@ -30,22 +30,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockClient struct {
+type mockApiClient struct {
 	mock.Mock
 }
 
-func (m *mockClient) sendAPIRequest(method, url string, body io.Reader, query url.Values, headers http.Header) (*http.Response, error) {
+func (m *mockApiClient) sendAPIRequest(method, url string, body io.Reader, query url.Values, headers http.Header) (*http.Response, error) {
 	call := m.Called(method, url, body, query, headers)
 	return call.Get(0).(*http.Response), call.Error(1)
 }
 
-func (m *mockClient) sendPaginatedAPIRequest(method, url string, body io.Reader, query url.Values, headers http.Header) ([]*http.Response, error) {
+func (m *mockApiClient) sendPaginatedAPIRequest(method, url string, body io.Reader, query url.Values, headers http.Header) ([]*http.Response, error) {
 	call := m.Called(method, url, body, query, headers)
 	return call.Get(0).([]*http.Response), call.Error(1)
 }
 
-func createMockClient(projectResponses []string, projectErr error, environmentResponses []string, environmentErr error, environmentProjectID int) (*mockClient, *mock.Call, *mock.Call) {
-	mc := &mockClient{}
+func createMockClient(projectResponses []string, projectErr error, environmentResponses []string, environmentErr error, environmentProjectID int) (*mockApiClient, *mock.Call, *mock.Call) {
+	mc := &mockApiClient{}
 	prs := make([]*http.Response, 0, len(projectResponses))
 	for _, body := range projectResponses {
 		prs = append(prs, &http.Response{Body: ioutil.NopCloser(strings.NewReader(body))})
@@ -177,7 +177,7 @@ func TestClient_GetProjects(t *testing.T) {
 			if projectAPICall != nil {
 				projectAPICall.Once()
 			}
-			c := Client{mc}
+			c := client{apiClient: mc}
 			projects, err := c.GetProjects()
 			if test.expectErr {
 				assert.Error(t, err)
@@ -316,7 +316,7 @@ func TestClient_GetEnvironmentsByProjectID(t *testing.T) {
 				environmentsAPICall.Once()
 			}
 			defer mc.AssertExpectations(t)
-			c := Client{apiClient: mc}
+			c := client{apiClient: mc}
 			environments, err := c.GetEnvironmentsByProjectID(projectID)
 			if test.expectErr {
 				assert.Error(t, err)
@@ -433,7 +433,7 @@ func TestClient_GetEnvironmentsByProjectName(t *testing.T) {
 			defer mc.AssertExpectations(t)
 			projectsAPICall.Once()
 			environmentsAPICall.Maybe()
-			c := Client{apiClient: mc}
+			c := client{apiClient: mc}
 			environments, err := c.GetEnvironmentsByProjectName(test.projectName)
 			if test.expectErr {
 				assert.Error(t, err)
@@ -445,7 +445,7 @@ func TestClient_GetEnvironmentsByProjectName(t *testing.T) {
 	}
 }
 
-func TestClient_GetEnvironment(t *testing.T) {
+func TestClient_GetEnvironmentByProjectName(t *testing.T) {
 	const projectBody = `
 [
   {
@@ -542,8 +542,105 @@ func TestClient_GetEnvironment(t *testing.T) {
 			defer mc.AssertExpectations(t)
 			projectsAPICall.Once()
 			environmentsAPICall.Once()
-			c := Client{apiClient: mc}
-			environment, err := c.GetEnvironment(test.environmentName, test.projectName)
+			c := client{apiClient: mc}
+			environment, err := c.GetEnvironmentByProjectName(test.environmentName, test.projectName)
+			if test.expectErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, test.expectedEnvironment, environment)
+		})
+	}
+}
+
+func TestClient_GetEnvironmentByProjectID(t *testing.T) {
+	const environmentBody = `
+[
+  {
+    "id": 1,
+    "key": "key",
+    "name": "Staging",
+    "project_id": 3000,
+    "archived": true,
+    "description": "staging environment",
+    "has_restricted_permissions": false,
+    "created": "2019-08-21T20:37:12Z",
+    "is_primary": false,
+    "last_modified": "2019-08-21T20:37:12Z",
+    "datafile": {
+      "id": 1,
+      "latest_file_size": 100,
+      "other_urls": [
+        "https://datafile.url"
+      ],
+      "revision": 1,
+      "sdk_key": "abc123",
+      "url": "https://datafile.url"
+    }
+  }
+]
+`
+	tests := []struct {
+		name                string
+		projectID           int
+		environmentName     string
+		environmentApiErr   error
+		expectedEnvironment Environment
+		expectErr           bool
+	}{
+		{
+			"environment is retrieved by project id",
+			3000,
+			"Staging",
+			nil,
+			Environment{
+				ID:                       1,
+				Key:                      "key",
+				Name:                     "Staging",
+				ProjectID:                3000,
+				Archived:                 true,
+				Description:              "staging environment",
+				HasRestrictedPermissions: false,
+				Created:                  time.Date(2019, 8, 21, 20, 37, 12, 0, time.UTC),
+				LastModified:             time.Date(2019, 8, 21, 20, 37, 12, 0, time.UTC),
+				Datafile: Datafile{
+					ID:             1,
+					LatestFileSize: 100,
+					OtherURLs:      []string{"https://datafile.url"},
+					Revision:       1,
+					SDKKey:         "abc123",
+					URL:            "https://datafile.url",
+				},
+				IsPrimary: false,
+			},
+			false,
+		}, {
+			"environment name not found returns error",
+			3000,
+			"bad environment",
+			nil,
+			Environment{},
+			true,
+		}, {
+			"error getting environments returns error",
+			3000,
+			"",
+			fmt.Errorf("envirnment error"),
+			Environment{},
+			true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mc, _, environmentsAPICall := createMockClient(
+				nil, nil, []string{environmentBody}, test.environmentApiErr, 3000)
+			defer mc.AssertExpectations(t)
+			if environmentsAPICall != nil {
+				environmentsAPICall.Once()
+			}
+			c := client{apiClient: mc}
+			environment, err := c.GetEnvironmentByProjectID(test.environmentName, test.projectID)
 			if test.expectErr {
 				assert.Error(t, err)
 				return
@@ -596,7 +693,7 @@ func TestClient_reportEvents(t *testing.T) {
 			mt := &mockTransport{}
 			mt.On("RoundTrip", mock.Anything).Return(test.response, test.httpErr).Once()
 			defer mt.AssertExpectations(t)
-			err := Client{&client{Client: http.Client{Transport: mt}}}.ReportEvents(test.body)
+			err := client{httpClient: http.Client{Transport: mt}}.ReportEvents(test.body)
 			if test.expectErr {
 				assert.Error(t, err)
 				return
@@ -606,6 +703,93 @@ func TestClient_reportEvents(t *testing.T) {
 			_, err = sentBody.ReadFrom(mt.Calls[0].Arguments[0].(*http.Request).Body)
 			require.NoError(t, err)
 			assert.Equal(t, string(test.body), sentBody.String())
+		})
+	}
+}
+
+func TestClient_GetDatafile(t *testing.T) {
+	const (
+		projectID       = 3000
+		environment     = "production"
+		environmentBody = `
+[
+  {
+    "id": 1,
+    "name": "production",
+    "project_id": 3000,
+    "datafile": {
+      "id": 1,
+      "latest_file_size": 100,
+      "other_urls": [
+        "https://datafile.other.url"
+      ],
+      "revision": 1,
+      "sdk_key": "abc123",
+      "url": "https://datafile.url"
+    }
+  }
+]
+`
+	)
+	tests := []struct {
+		name              string
+		environmentApiErr error
+		responseBody      string
+		statusCode        int
+		httpErr           error
+		expectErr         bool
+	}{
+		{
+			"datafile returned from API",
+			nil,
+			"i am a datafile",
+			http.StatusOK,
+			nil,
+			false,
+		}, {
+			"error getting environments returns error",
+			fmt.Errorf("environment api error"),
+			"",
+			0,
+			nil,
+			true,
+		}, {
+			"non-200 level status code returns error",
+			nil,
+			"",
+			http.StatusInternalServerError,
+			nil,
+			true,
+		}, {
+			"http error returns error",
+			nil,
+			"",
+			http.StatusOK,
+			fmt.Errorf("http error"),
+			true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mc, _, environmentsAPICall := createMockClient(
+				nil, nil, []string{environmentBody}, test.environmentApiErr, projectID)
+			defer mc.AssertExpectations(t)
+			if environmentsAPICall != nil {
+				environmentsAPICall.Once()
+			}
+			mt := &mockTransport{}
+			defer mt.AssertExpectations(t)
+			resp := &http.Response{Body: ioutil.NopCloser(strings.NewReader(test.responseBody)), StatusCode: test.statusCode}
+			mt.On("RoundTrip", mock.Anything).Return(resp, test.httpErr).Maybe()
+			//mc.On("httpClient").Return(&http.Client{Transport: mt}).Maybe()
+			c := client{apiClient: mc, httpClient: http.Client{Transport: mt}}
+			df, err := c.GetDatafile(environment, projectID)
+			if test.expectErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, test.responseBody, string(df))
 		})
 	}
 }

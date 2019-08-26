@@ -19,6 +19,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+
+	"github.com/spothero/optimizely-sdk-go/api"
+	"golang.org/x/xerrors"
 )
 
 // only version 4 of the datafile is currently supported
@@ -199,4 +202,18 @@ func (p Project) ToContext(ctx context.Context, userID string) context.Context {
 		impressions: make([]Impression, 0),
 	}
 	return context.WithValue(ctx, projCtxKey, projectCtx)
+}
+
+// GetDatafile is a convenience wrapper around the api package's GetDatafile method that
+// unmarshals the datafile from the Optimizely API.
+func GetDatafile(client api.Client, environmentName string, projectID int) (Datafile, error) {
+	dfBytes, err := client.GetDatafile(environmentName, projectID)
+	if err != nil {
+		return Datafile{}, err
+	}
+	var df Datafile
+	if err := json.Unmarshal(dfBytes, &df); err != nil {
+		return Datafile{}, xerrors.Errorf("error unmarshaling datafile: %w", err)
+	}
+	return df, nil
 }

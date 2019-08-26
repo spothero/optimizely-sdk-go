@@ -24,10 +24,13 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// client is the structure used for interacting with the Optimizely API. This type fulfills both the
+// apiClient and Client interfaces.
 type client struct {
-	http.Client
-	token   string
-	perPage int
+	httpClient http.Client
+	apiClient  apiClient
+	token      string
+	perPage    int
 }
 
 type apiClient interface {
@@ -35,15 +38,9 @@ type apiClient interface {
 	sendPaginatedAPIRequest(method, url string, body io.Reader, query url.Values, headers http.Header) ([]*http.Response, error)
 }
 
-// Client is the structure used for interacting with the Optimizely API. For most functionality, the Client must be
-// built with an API token.
-type Client struct {
-	apiClient
-}
-
 // NewClient constructs a new Optimizely API client from optional provided options.
-func NewClient(options ...func(*Client)) Client {
-	c := Client{&client{perPage: 25}}
+func NewClient(options ...func(*client)) Client {
+	c := client{perPage: 25}
 	for _, option := range options {
 		option(&c)
 	}
@@ -51,17 +48,17 @@ func NewClient(options ...func(*Client)) Client {
 }
 
 // Token provides the Optimizely API token as an option when building a new Client.
-func Token(t string) func(*Client) {
-	return func(c *Client) {
-		c.apiClient.(*client).token = t
+func Token(t string) func(*client) {
+	return func(c *client) {
+		c.token = t
 	}
 }
 
 // PerPage sets the requested number of items to return on each request to the optimizely API as an option when
 // building a new Client. If this option is not provided to NewClient, the default value is 25 items per page.
-func PerPage(i int) func(*Client) {
-	return func(c *Client) {
-		c.apiClient.(*client).perPage = i
+func PerPage(i int) func(*client) {
+	return func(c *client) {
+		c.perPage = i
 	}
 }
 
@@ -95,7 +92,7 @@ func (c client) sendAPIRequest(method, uri string, body io.Reader, query url.Val
 	if c.token != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
 	}
-	resp, err := c.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, xerrors.Errorf("error making Optimizely API request: %w", err)
 	}

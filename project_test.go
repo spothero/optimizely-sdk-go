@@ -16,9 +16,11 @@ package optimizely
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 
+	"github.com/spothero/optimizely-sdk-go/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -212,4 +214,52 @@ func TestProject_ToContext(t *testing.T) {
 		},
 		projectCtx,
 	)
+}
+
+func TestGetDatafile(t *testing.T) {
+	const (
+		environment = "production"
+		projectID   = 1234
+	)
+	tests := []struct {
+		name             string
+		datafileBytes    []byte
+		datafileErr      error
+		expectedDatafile Datafile
+		expectErr        bool
+	}{
+		{
+			"datafile retrieved and unmarshaled from API",
+			[]byte(`{"version": "abc1234"}`),
+			nil,
+			Datafile{Version: "abc1234"},
+			false,
+		}, {
+			"error retrieving datafile from API returns error",
+			[]byte{},
+			fmt.Errorf("api error"),
+			Datafile{},
+			true,
+		}, {
+			"error unmarshaling datafile returns error",
+			[]byte("{"),
+			nil,
+			Datafile{},
+			true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := &mocks.Client{}
+			client.On("GetDatafile", environment, projectID).Return(test.datafileBytes, test.datafileErr).Once()
+			defer client.AssertExpectations(t)
+			df, err := GetDatafile(client, environment, projectID)
+			if test.expectErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, test.expectedDatafile, df)
+		})
+	}
 }

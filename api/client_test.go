@@ -32,17 +32,17 @@ import (
 func TestNewClient(t *testing.T) {
 	tests := []struct {
 		name     string
-		options  []func(*Client)
+		options  []func(*client)
 		expected Client
 	}{
 		{
 			"default client has no token and requests 25 records per page",
-			[]func(*Client){},
-			Client{&client{perPage: 25}},
+			[]func(*client){},
+			client{perPage: 25},
 		}, {
 			"token and per page are set when provided as options",
-			[]func(*Client){Token("abc"), PerPage(10)},
-			Client{&client{token: "abc", perPage: 10}},
+			[]func(*client){Token("abc"), PerPage(10)},
+			client{token: "abc", perPage: 10},
 		},
 	}
 	for _, test := range tests {
@@ -121,9 +121,9 @@ func TestClient_sendAPIRequest(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			mt := &mockTransport{}
 			client := client{
-				Client:  http.Client{Transport: mt},
-				token:   "token",
-				perPage: 5,
+				httpClient: http.Client{Transport: mt},
+				token:      "token",
+				perPage:    5,
 			}
 			if test.expectRequestSent {
 				mt.On("RoundTrip", mock.Anything).Return(test.response, test.httpErr).Once()
@@ -222,7 +222,7 @@ func TestClient_sendPaginatedAPIRequest(t *testing.T) {
 				expectedResponses = append(expectedResponses, resp.response)
 			}
 			defer mt.AssertExpectations(t)
-			client := client{Client: http.Client{Transport: mt}}
+			client := client{httpClient: http.Client{Transport: mt}}
 			responses, err := client.sendPaginatedAPIRequest(http.MethodGet, test.responses[0].requestURL, nil, nil, nil)
 			if test.expectErr {
 				assert.Error(t, err)
