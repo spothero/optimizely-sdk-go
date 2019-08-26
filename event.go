@@ -208,12 +208,16 @@ func EventsFromContext(ctx context.Context, options ...func(*Events) error) *Eve
 	return &events
 }
 
-// ReportEvents sends the provided events to the Optimizely reporting API.
-func ReportEvents(events Events) error {
+// ReportEvents is a convenience wrapper for sending events to the Optimizely reporting API that marshals
+// the events to JSON and calls the api package.
+//
+// Note: The provided client does not necessarily
+// have to be instantiated with a token as the events endpoint does not require one.
+func ReportEvents(client api.Client, events Events) error {
 	eventsJSON, err := json.Marshal(events)
 	if err != nil {
 		return xerrors.Errorf("error marshaling events to JSON: %w", err)
 	}
 	// the events endpoint does not require auth nor take any other parameters so just use the empty API client
-	return api.NewClient().ReportEvents(eventsJSON)
+	return client.ReportEvents(eventsJSON)
 }

@@ -16,10 +16,12 @@ package optimizely
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/spothero/optimizely-sdk-go/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -321,4 +323,19 @@ func TestEventsFromContext(t *testing.T) {
 			assert.Len(t, test.projectCtx.impressions, 0)
 		})
 	}
+}
+
+func TestReportEvents(t *testing.T) {
+	events := Events{
+		AccountID:       "1234",
+		AnonymizeIP:     true,
+		ClientName:      "client",
+		EnrichDecisions: true,
+	}
+	eventsJSON, err := json.Marshal(events)
+	require.NoError(t, err)
+	client := &mocks.Client{}
+	client.On("ReportEvents", eventsJSON).Return(nil).Once()
+	assert.NoError(t, ReportEvents(client, events))
+	client.AssertExpectations(t)
 }
