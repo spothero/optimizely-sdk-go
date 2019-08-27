@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -68,9 +69,34 @@ type Datafile struct {
 	URL            string   `json:"url"`
 }
 
-// GetProjects returns all Optimizely Projects within the Optimizely account that the client has access to.
-func (c Client) GetProjects() ([]Project, error) {
-	responses, err := c.sendPaginatedAPIRequest(
+// Client is the interface for interacting with the Optimizely API. NewClient returns a real implementation of this
+// interface and the mocks package contains a version of this interface for testing purposes.
+type Client interface {
+	// GetDatafile returns the raw contents of the datafile for a given environment and project. This method will
+	// return an error if the project cannot be found, the environment cannot be found in the project, or if there
+	// is an error retrieving the datafile.
+	GetDatafile(environmentName string, projectID int) ([]byte, error)
+	// GetEnvironment returns a single environment with a given name within a Project with a given ID.
+	// This method can return an error if the given project ID is not found or the environment with the specified name
+	// is not found.
+	GetEnvironmentByProjectID(name string, projectID int) (Environment, error)
+	// GetEnvironmentByProjectName returns the a single environment with a given name within a Project with a given name.
+	// This method can return an error if the given project is not found or the environment with the specified name
+	// is not found.
+	GetEnvironmentByProjectName(name, projectName string) (Environment, error)
+	// GetEnvironmentsByProjectID returns a list of environments located in the project with the given ID.
+	GetEnvironmentsByProjectID(projectID int) ([]Environment, error)
+	// GetEnvironmentsByProjectName returns a list of environments located in the project with the given name.
+	// If there is no project with the given name, an error is returned.
+	GetEnvironmentsByProjectName(projectName string) ([]Environment, error)
+	// GetProjects returns all Optimizely Projects within the Optimizely account that the client has access to.
+	GetProjects() ([]Project, error)
+	// ReportEvents sends serialized events to the Optimizely events API.
+	ReportEvents(events []byte) error
+}
+
+func (c client) GetProjects() ([]Project, error) {
+	responses, err := c.apiClient.sendPaginatedAPIRequest(
 		http.MethodGet, fmt.Sprintf("%s/projects", baseURL), nil, nil, nil)
 	if err != nil {
 		return nil, err
@@ -87,11 +113,10 @@ func (c Client) GetProjects() ([]Project, error) {
 	return projects, nil
 }
 
-// GetEnvironmentsByProjectID returns a list of environments located in the project with the given ID.
-func (c Client) GetEnvironmentsByProjectID(projectID int) ([]Environment, error) {
+func (c client) GetEnvironmentsByProjectID(projectID int) ([]Environment, error) {
 	query := url.Values{}
 	query.Set("project_id", fmt.Sprintf("%d", projectID))
-	responses, err := c.sendPaginatedAPIRequest(
+	responses, err := c.apiClient.sendPaginatedAPIRequest(
 		http.MethodGet, fmt.Sprintf("%s/environments", baseURL), nil, query, nil)
 	if err != nil {
 		return nil, err
@@ -108,9 +133,7 @@ func (c Client) GetEnvironmentsByProjectID(projectID int) ([]Environment, error)
 	return environments, nil
 }
 
-// GetEnvironmentsByProjectName returns a list of environments located in the project with the given name.
-// If there is no project with the given name, an error is returned.
-func (c Client) GetEnvironmentsByProjectName(projectName string) ([]Environment, error) {
+func (c client) GetEnvironmentsByProjectName(projectName string) ([]Environment, error) {
 	projects, err := c.GetProjects()
 	if err != nil {
 		return nil, xerrors.Errorf("failed to get environments because failed to get projects: %w", err)
@@ -123,9 +146,7 @@ func (c Client) GetEnvironmentsByProjectName(projectName string) ([]Environment,
 	return nil, fmt.Errorf("could not find project with name %s", projectName)
 }
 
-// GetEnvironment returns the a single environment with a given name within a Project with a given name.
-// This method can return an error if the given project is not found or the environment with the specified is not found.
-func (c Client) GetEnvironment(name, projectName string) (Environment, error) {
+func (c client) GetEnvironmentByProjectName(name, projectName string) (Environment, error) {
 	environments, err := c.GetEnvironmentsByProjectName(projectName)
 	if err != nil {
 		return Environment{}, err
@@ -135,12 +156,24 @@ func (c Client) GetEnvironment(name, projectName string) (Environment, error) {
 			return env, nil
 		}
 	}
-	return Environment{}, fmt.Errorf("could not find environment with name %s", name)
+	return Environment{}, fmt.Errorf("could not find environment with name %s for project %s", name, projectName)
 }
 
-// ReportEvents sends serialized events to the Optimizely events API.
-func (c Client) ReportEvents(events []byte) error {
-	response, err := c.apiClient.(*client).Post(eventsEndpoint, "application/json", bytes.NewBuffer(events))
+func (c client) GetEnvironmentByProjectID(name string, projectID int) (Environment, error) {
+	environments, err := c.GetEnvironmentsByProjectID(projectID)
+	if err != nil {
+		return Environment{}, err
+	}
+	for _, env := range environments {
+		if env.Name == name {
+			return env, nil
+		}
+	}
+	return Environment{}, fmt.Errorf("could not find environment with name %s for project %d", name, projectID)
+}
+
+func (c client) ReportEvents(events []byte) error {
+	response, err := c.httpClient.Post(eventsEndpoint, "application/json", bytes.NewBuffer(events))
 	if err != nil {
 		return xerrors.Errorf("error reporting events to Optimizely API: %w", err)
 	}
@@ -148,4 +181,20 @@ func (c Client) ReportEvents(events []byte) error {
 		return fmt.Errorf("unexpected status code (%d) received from events API", response.StatusCode)
 	}
 	return nil
+}
+
+func (c client) GetDatafile(environmentName string, projectID int) ([]byte, error) {
+	environment, err := c.GetEnvironmentByProjectID(environmentName, projectID)
+	if err != nil {
+		return nil, err
+	}
+	response, err := c.httpClient.Get(environment.Datafile.URL)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to retrieve datafile from %s: %w", environment.Datafile.URL, err)
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil, xerrors.Errorf(
+			"invalid response (%d) received while retrieving datafile: %w", response.StatusCode, err)
+	}
+	return ioutil.ReadAll(response.Body)
 }
