@@ -563,7 +563,7 @@ func TestClient_GetEnvironmentByProjectID(t *testing.T) {
 [
   {
     "id": 1,
-    "key": "key",
+    "key": "staging",
     "name": "Staging",
     "project_id": 3000,
     "archived": true,
@@ -588,7 +588,7 @@ func TestClient_GetEnvironmentByProjectID(t *testing.T) {
 	tests := []struct {
 		name                string
 		projectID           int
-		environmentName     string
+		environmentKey      string
 		environmentApiErr   error
 		expectedEnvironment Environment
 		expectErr           bool
@@ -596,11 +596,11 @@ func TestClient_GetEnvironmentByProjectID(t *testing.T) {
 		{
 			"environment is retrieved by project id",
 			3000,
-			"Staging",
+			"staging",
 			nil,
 			Environment{
 				ID:                       1,
-				Key:                      "key",
+				Key:                      "staging",
 				Name:                     "Staging",
 				ProjectID:                3000,
 				Archived:                 true,
@@ -644,7 +644,7 @@ func TestClient_GetEnvironmentByProjectID(t *testing.T) {
 				environmentsAPICall.Once()
 			}
 			c := client{apiClient: mc}
-			environment, err := c.GetEnvironmentByProjectID(test.environmentName, test.projectID)
+			environment, err := c.GetEnvironmentByProjectID(test.environmentKey, test.projectID)
 			if test.expectErr {
 				assert.Error(t, err)
 				return
@@ -721,7 +721,7 @@ func TestClient_GetDatafile(t *testing.T) {
 [
   {
     "id": 1,
-    "name": "production",
+    "key": "production",
     "project_id": 3000,
     "datafile": {
       "id": 1,
