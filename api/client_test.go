@@ -38,11 +38,11 @@ func TestNewClient(t *testing.T) {
 		{
 			"default client has no token and requests 25 records per page",
 			[]func(*client){},
-			client{perPage: 25},
+			client{apiClient: optimizelyAPIClient{perPage: 25}},
 		}, {
 			"token and per page are set when provided as options",
 			[]func(*client){Token("abc"), PerPage(10)},
-			client{token: "abc", perPage: 10},
+			client{apiClient: optimizelyAPIClient{token: "abc", perPage: 10}},
 		},
 	}
 	for _, test := range tests {
@@ -59,7 +59,7 @@ func (m *mockTransport) RoundTrip(request *http.Request) (*http.Response, error)
 	return call.Get(0).(*http.Response), call.Error(1)
 }
 
-func TestClient_sendAPIRequest(t *testing.T) {
+func TestOptimizelyAPIClient_sendAPIRequest(t *testing.T) {
 	tests := []struct {
 		name                  string
 		method, path          string
@@ -120,10 +120,10 @@ func TestClient_sendAPIRequest(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			mt := &mockTransport{}
-			client := client{
-				httpClient: http.Client{Transport: mt},
-				token:      "token",
-				perPage:    5,
+			client := optimizelyAPIClient{
+				Client:  http.Client{Transport: mt},
+				token:   "token",
+				perPage: 5,
 			}
 			if test.expectRequestSent {
 				mt.On("RoundTrip", mock.Anything).Return(test.response, test.httpErr).Once()
@@ -155,7 +155,7 @@ func TestClient_sendAPIRequest(t *testing.T) {
 	}
 }
 
-func TestClient_sendPaginatedAPIRequest(t *testing.T) {
+func TestOptimizelyAPIClient_sendPaginatedAPIRequest(t *testing.T) {
 	type mockApiResponse struct {
 		requestURL string
 		response   *http.Response
@@ -222,7 +222,7 @@ func TestClient_sendPaginatedAPIRequest(t *testing.T) {
 				expectedResponses = append(expectedResponses, resp.response)
 			}
 			defer mt.AssertExpectations(t)
-			client := client{httpClient: http.Client{Transport: mt}}
+			client := optimizelyAPIClient{Client: http.Client{Transport: mt}}
 			responses, err := client.sendPaginatedAPIRequest(http.MethodGet, test.responses[0].requestURL, nil, nil, nil)
 			if test.expectErr {
 				assert.Error(t, err)

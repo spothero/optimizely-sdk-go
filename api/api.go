@@ -173,7 +173,8 @@ func (c client) GetEnvironmentByProjectID(name string, projectID int) (Environme
 }
 
 func (c client) ReportEvents(events []byte) error {
-	response, err := c.httpClient.Post(eventsEndpoint, "application/json", bytes.NewBuffer(events))
+	response, err := c.apiClient.httpClient().Post(
+		eventsEndpoint, "application/json", bytes.NewBuffer(events))
 	if err != nil {
 		return xerrors.Errorf("error reporting events to Optimizely API: %w", err)
 	}
@@ -188,7 +189,7 @@ func (c client) GetDatafile(environmentName string, projectID int) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	response, err := c.httpClient.Get(environment.Datafile.URL)
+	response, err := c.apiClient.httpClient().Get(environment.Datafile.URL)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to retrieve datafile from %s: %w", environment.Datafile.URL, err)
 	}

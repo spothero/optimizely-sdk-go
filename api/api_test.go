@@ -44,6 +44,10 @@ func (m *mockApiClient) sendPaginatedAPIRequest(method, url string, body io.Read
 	return call.Get(0).([]*http.Response), call.Error(1)
 }
 
+func (m *mockApiClient) httpClient() *http.Client {
+	return m.Called().Get(0).(*http.Client)
+}
+
 func createMockClient(projectResponses []string, projectErr error, environmentResponses []string, environmentErr error, environmentProjectID int) (*mockApiClient, *mock.Call, *mock.Call) {
 	mc := &mockApiClient{}
 	prs := make([]*http.Response, 0, len(projectResponses))
@@ -692,8 +696,10 @@ func TestClient_reportEvents(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			mt := &mockTransport{}
 			mt.On("RoundTrip", mock.Anything).Return(test.response, test.httpErr).Once()
+			mc := &mockApiClient{}
+			mc.On("httpClient").Return(&http.Client{Transport: mt})
 			defer mt.AssertExpectations(t)
-			err := client{httpClient: http.Client{Transport: mt}}.ReportEvents(test.body)
+			err := client{apiClient: mc}.ReportEvents(test.body)
 			if test.expectErr {
 				assert.Error(t, err)
 				return
@@ -781,8 +787,8 @@ func TestClient_GetDatafile(t *testing.T) {
 			defer mt.AssertExpectations(t)
 			resp := &http.Response{Body: ioutil.NopCloser(strings.NewReader(test.responseBody)), StatusCode: test.statusCode}
 			mt.On("RoundTrip", mock.Anything).Return(resp, test.httpErr).Maybe()
-			//mc.On("httpClient").Return(&http.Client{Transport: mt}).Maybe()
-			c := client{apiClient: mc, httpClient: http.Client{Transport: mt}}
+			mc.On("httpClient").Return(&http.Client{Transport: mt}).Maybe()
+			c := client{apiClient: mc}
 			df, err := c.GetDatafile(environment, projectID)
 			if test.expectErr {
 				assert.Error(t, err)
