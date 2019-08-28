@@ -83,7 +83,7 @@ type Client interface {
 	// GetEnvironmentByProjectName returns the a single environment with a given name within a Project with a given name.
 	// This method can return an error if the given project is not found or the environment with the specified name
 	// is not found.
-	GetEnvironmentByProjectName(name, projectName string) (Environment, error)
+	GetEnvironmentByProjectName(key, projectName string) (Environment, error)
 	// GetEnvironmentsByProjectID returns a list of environments located in the project with the given ID.
 	GetEnvironmentsByProjectID(projectID int) ([]Environment, error)
 	// GetEnvironmentsByProjectName returns a list of environments located in the project with the given name.
@@ -159,17 +159,17 @@ func (c client) GetEnvironmentByProjectName(name, projectName string) (Environme
 	return Environment{}, fmt.Errorf("could not find environment with name %s for project %s", name, projectName)
 }
 
-func (c client) GetEnvironmentByProjectID(name string, projectID int) (Environment, error) {
+func (c client) GetEnvironmentByProjectID(key string, projectID int) (Environment, error) {
 	environments, err := c.GetEnvironmentsByProjectID(projectID)
 	if err != nil {
 		return Environment{}, err
 	}
 	for _, env := range environments {
-		if env.Name == name {
+		if env.Key == key {
 			return env, nil
 		}
 	}
-	return Environment{}, fmt.Errorf("could not find environment with name %s for project %d", name, projectID)
+	return Environment{}, fmt.Errorf("could not find environment with key %s for project %d", key, projectID)
 }
 
 func (c client) ReportEvents(events []byte) error {
