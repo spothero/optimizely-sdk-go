@@ -27,20 +27,25 @@ import (
 // client is the structure used for interacting with the Optimizely API. This type fulfills both the
 // apiClient and Client interfaces.
 type client struct {
-	httpClient http.Client
-	apiClient  apiClient
-	token      string
-	perPage    int
+	apiClient apiClient
 }
 
+// interface that defines methods for querying the Optimizely api including pagination
 type apiClient interface {
 	sendAPIRequest(method, url string, body io.Reader, query url.Values, headers http.Header) (*http.Response, error)
 	sendPaginatedAPIRequest(method, url string, body io.Reader, query url.Values, headers http.Header) ([]*http.Response, error)
+	httpClient() *http.Client
+}
+
+type optimizelyAPIClient struct {
+	http.Client
+	token   string
+	perPage int
 }
 
 // NewClient constructs a new Optimizely API client from optional provided options.
 func NewClient(options ...func(*client)) Client {
-	c := client{perPage: 25}
+	c := client{apiClient: optimizelyAPIClient{perPage: 25}}
 	for _, option := range options {
 		option(&c)
 	}
@@ -50,7 +55,9 @@ func NewClient(options ...func(*client)) Client {
 // Token provides the Optimizely API token as an option when building a new Client.
 func Token(t string) func(*client) {
 	return func(c *client) {
-		c.token = t
+		ac := c.apiClient.(optimizelyAPIClient)
+		ac.token = t
+		c.apiClient = ac
 	}
 }
 
@@ -58,13 +65,15 @@ func Token(t string) func(*client) {
 // building a new Client. If this option is not provided to NewClient, the default value is 25 items per page.
 func PerPage(i int) func(*client) {
 	return func(c *client) {
-		c.perPage = i
+		ac := c.apiClient.(optimizelyAPIClient)
+		ac.perPage = i
+		c.apiClient = ac
 	}
 }
 
 // sends a single API request to the Optimizely API and returns the response or error. If the response is a non-200
 // level response, an error is also returned.
-func (c client) sendAPIRequest(method, uri string, body io.Reader, query url.Values, headers http.Header) (*http.Response, error) {
+func (c optimizelyAPIClient) sendAPIRequest(method, uri string, body io.Reader, query url.Values, headers http.Header) (*http.Response, error) {
 	req, err := http.NewRequest(method, uri, body)
 	if err != nil {
 		return nil, xerrors.Errorf("error creating Optimizely API request: %w", err)
@@ -92,7 +101,7 @@ func (c client) sendAPIRequest(method, uri string, body io.Reader, query url.Val
 	if c.token != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
 	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.Do(req)
 	if err != nil {
 		return nil, xerrors.Errorf("error making Optimizely API request: %w", err)
 	}
@@ -103,7 +112,7 @@ func (c client) sendAPIRequest(method, uri string, body io.Reader, query url.Val
 }
 
 // sends a request to the Optimizely API and follows all pagination links and aggregates the responses.
-func (c client) sendPaginatedAPIRequest(method, uri string, body io.Reader, query url.Values, headers http.Header) ([]*http.Response, error) {
+func (c optimizelyAPIClient) sendPaginatedAPIRequest(method, uri string, body io.Reader, query url.Values, headers http.Header) ([]*http.Response, error) {
 	responses := make([]*http.Response, 0, 1)
 	curURL := uri
 	for {
@@ -119,4 +128,8 @@ func (c client) sendPaginatedAPIRequest(method, uri string, body io.Reader, quer
 		}
 		curURL = next[0].URL
 	}
+}
+
+func (c optimizelyAPIClient) httpClient() *http.Client {
+	return &c.Client
 }
